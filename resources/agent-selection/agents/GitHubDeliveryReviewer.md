@@ -1,9 +1,6 @@
 ---
 description: Independently reviews the complete issue diff; repository and GitHub are read-only, with writes limited to external review artifacts.
 type: subagent
-model:
-  id: omlx/GLM-4.7-Flash-MLX-8bit
-  thinking: "off"
 tools: ["read", "bash", "write", "grep", "find", "ls"]
 agents: []
 workflows: []
