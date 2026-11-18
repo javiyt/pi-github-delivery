@@ -98,53 +98,65 @@ export function stageIds(suite=suiteDirectory()){
  const workflow=YAML.parse(read(join(RESOURCE_ROOT,'workflow','workflows','GitHubIssueDelivery.yaml')));
  return workflow.stages.map(s=>s.id);
 }
+export const SELECT_PER_STAGE='Choose a model for each stage';
+export const SELECT_CURRENT='Current model for every stage';
+export const SELECT_SINGLE='Use one model for every stage';
 /**
  * Builds a model profile through an interactive prompt sequence. `prompter` supplies
  * the UI primitives; `current` describes the model Pi currently selected; `models`
  * lists the selectable models. Returns the profile, or undefined when the user
- * cancels any prompt. The first choice "Current Pi model for every stage" produces
- * the current profile with no per-stage overrides.
+ * cancels any prompt.
+ *
+ * Modes: "Choose a model for each stage" prompts model + thinking level per role;
+ * "Current model for every stage" keeps the current model with no overrides;
+ * "Use one model for every stage" picks one model, then only the thinking levels.
  */
 export async function selectModelProfile(prompter,current,models){
  const roles=[{key:'coordinator',label:'Coordinator'},...stageIds().map(id=>({key:id,label:id}))];
- const currentChoice=current===null?null:`Current model (${current.id}) for every stage`;
- const mode=await prompter.select('GitHub issue delivery — model profile',[
-  ...(currentChoice?[currentChoice]:[]),
-  ...models.map(m=>`Select ${modelLabel(m)} for every stage`),
-  'Type model IDs per stage'
- ]);
+ const currentChoice=current===null?null:`${SELECT_CURRENT} (${current.id})`;
+ const mode=await prompter.select('GitHub issue delivery — model profile',[SELECT_PER_STAGE,...(currentChoice?[currentChoice]:[]),SELECT_SINGLE]);
  if(mode===undefined)return undefined;
  if(currentChoice===mode)return {version:1,coordinator:null,stages:{}};
- const preset=mode.startsWith('Select ')?models.find(m=>modelLabel(m)===mode.slice(7,-' for every stage'.length)):null;
- if(mode.startsWith('Select ')&&preset===undefined)throw Error('Unknown preset model selection: '+mode);
  const profile={version:1,coordinator:null,stages:{}};
- for(const role of roles){
-  let id,thinking;
-  if(preset){
-   id=preset.id;
-   const levels=thinkingLevelsFor(preset);
-   thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,levels);
-   if(thinking===undefined)return undefined;
-  }else{
-   const choices=models.map(modelLabel).concat('Type a model ID');
-   const choice=await prompter.select(`Model for ${role.label}`,choices);
-   if(choice===undefined)return undefined;
-   const match=models.find(m=>modelLabel(m)===choice);
-   if(match){
-    id=match.id;
-    const levels=thinkingLevelsFor(match);
-    thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,levels);
-    if(thinking===undefined)return undefined;
-   }else{
-    const typed=await prompter.input(`Model ID for ${role.label}`,'provider/model');
-    if(typed===undefined)return undefined;
-    id=typed.trim();
-    if(!/^\S+\/\S+$/.test(id))throw Error(`Invalid model ID for ${role.label}: expected provider/model`);
-    thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,THINKING);
-    if(thinking===undefined)return undefined;
-   }
+ const set=(role,value)=>{if(role.key==='coordinator')profile.coordinator=value;else profile.stages[role.key]=value;};
+ if(mode===SELECT_SINGLE){
+  const choices=models.map(modelLabel).concat('Type a model ID');
+  const choice=await prompter.select('Model for every stage',choices);
+  if(choice===undefined)return undefined;
+  const match=models.find(m=>modelLabel(m)===choice);
+  let id=match?.id;
+  if(!match){
+   const typed=await prompter.input('Model ID','provider/model');
+   if(typed===undefined)return undefined;
+   id=typed.trim();
+   if(!/^\S+\/\S+$/.test(id))throw Error('Invalid model ID: expected provider/model');
   }
-  if(role.key==='coordinator')profile.coordinator={id,thinking};else profile.stages[role.key]={id,thinking};
+  const resolved=match??{id,reasoning:false,thinkingLevelMap:undefined};
+  for(const role of roles){
+   const thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,thinkingLevelsFor(resolved));
+   if(thinking===undefined)return undefined;
+   set(role,{id,thinking});
+  }
+  return profile;
+ }
+ for(const role of roles){
+  const choices=models.map(modelLabel).concat('Type a model ID');
+  const choice=await prompter.select(`Model for ${role.label}`,choices);
+  if(choice===undefined)return undefined;
+  const match=models.find(m=>modelLabel(m)===choice);
+  let id,thinking;
+  if(match){
+   id=match.id;
+   thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,thinkingLevelsFor(match));
+  }else{
+   const typed=await prompter.input(`Model ID for ${role.label}`,'provider/model');
+   if(typed===undefined)return undefined;
+   id=typed.trim();
+   if(!/^\S+\/\S+$/.test(id))throw Error(`Invalid model ID for ${role.label}: expected provider/model`);
+   thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,THINKING);
+  }
+  if(thinking===undefined)return undefined;
+  set(role,{id,thinking});
  }
  return profile;
 }
