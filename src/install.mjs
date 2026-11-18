@@ -9,7 +9,8 @@ export const PACKAGE_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 export const VERSION=JSON.parse(fs.readFileSync(join(PACKAGE_ROOT,'package.json'),'utf8')).version;
 const RESOURCE_ROOT=join(PACKAGE_ROOT,'resources');
 const META='github-issue-delivery';
-const THINKING=new Set(['off','minimal','low','medium','high','xhigh','max']);
+export const THINKING=['off','minimal','low','medium','high','xhigh','max'];
+const THINKING_SET=new Set(THINKING);
 const digest=data=>createHash('sha256').update(data).digest('hex');
 const read=path=>fs.existsSync(path)?fs.readFileSync(path,'utf8'):null;
 function expandHome(path){return path.replace(/^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/,homedir());}
@@ -43,7 +44,7 @@ function model(value,label){
  if(value===null||value===undefined)return null;
  if(typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!['id','thinking'].includes(k))||
   typeof value.id!=='string'||!/^\S+\/\S+$/.test(value.id)||
-  (value.thinking!==undefined&&!THINKING.has(value.thinking)))throw Error('Invalid model settings: '+label);
+  (value.thinking!==undefined&&!THINKING_SET.has(value.thinking)))throw Error('Invalid model settings: '+label);
  return value;
 }
 export function validateProfile(profile,ids){
@@ -82,10 +83,88 @@ export function renderResources(suite,profile){
  return result;
 }
 export function loadProfile(suite,selection){
- const saved=join(suite,META,'models.json');
+ const saved=savedProfilePath(suite);
  const source=selection?(['current','omlx'].includes(selection)?join(PACKAGE_ROOT,'profiles',selection+'.json'):resolve(selection)):
   fs.existsSync(saved)?saved:join(PACKAGE_ROOT,'profiles','current.json');
  return JSON.parse(fs.readFileSync(source,'utf8'));
+}
+export function savedProfilePath(suite){return join(resolve(suite),META,'models.json');}
+export function saveProfile(suite,profile){
+ const target=savedProfilePath(suite);
+ fs.mkdirSync(dirname(target),{recursive:true});
+ atomic(target,JSON.stringify(profile,null,2)+'\n');
+}
+export function stageIds(suite=suiteDirectory()){
+ const workflow=YAML.parse(read(join(RESOURCE_ROOT,'workflow','workflows','GitHubIssueDelivery.yaml')));
+ return workflow.stages.map(s=>s.id);
+}
+/**
+ * Builds a model profile through an interactive prompt sequence. `prompter` supplies
+ * the UI primitives; `current` describes the model Pi currently selected; `models`
+ * lists the selectable models. Returns the profile, or undefined when the user
+ * cancels any prompt. The first choice "Current Pi model for every stage" produces
+ * the current profile with no per-stage overrides.
+ */
+export async function selectModelProfile(prompter,current,models){
+ const roles=[{key:'coordinator',label:'Coordinator'},...stageIds().map(id=>({key:id,label:id}))];
+ const currentChoice=current===null?null:`Current model (${current.id}) for every stage`;
+ const mode=await prompter.select('GitHub issue delivery — model profile',[
+  ...(currentChoice?[currentChoice]:[]),
+  ...models.map(m=>`Select ${modelLabel(m)} for every stage`),
+  'Type model IDs per stage'
+ ]);
+ if(mode===undefined)return undefined;
+ if(currentChoice===mode)return {version:1,coordinator:null,stages:{}};
+ const preset=mode.startsWith('Select ')?models.find(m=>modelLabel(m)===mode.slice(7,-' for every stage'.length)):null;
+ if(mode.startsWith('Select ')&&preset===undefined)throw Error('Unknown preset model selection: '+mode);
+ const profile={version:1,coordinator:null,stages:{}};
+ for(const role of roles){
+  let id,thinking;
+  if(preset){
+   id=preset.id;
+   const levels=thinkingLevelsFor(preset);
+   thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,levels);
+   if(thinking===undefined)return undefined;
+  }else{
+   const choices=models.map(modelLabel).concat('Type a model ID');
+   const choice=await prompter.select(`Model for ${role.label}`,choices);
+   if(choice===undefined)return undefined;
+   const match=models.find(m=>modelLabel(m)===choice);
+   if(match){
+    id=match.id;
+    const levels=thinkingLevelsFor(match);
+    thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,levels);
+    if(thinking===undefined)return undefined;
+   }else{
+    const typed=await prompter.input(`Model ID for ${role.label}`,'provider/model');
+    if(typed===undefined)return undefined;
+    id=typed.trim();
+    if(!/^\S+\/\S+$/.test(id))throw Error(`Invalid model ID for ${role.label}: expected provider/model`);
+    thinking=await prompter.select(`Thinking level for ${role.label} (${id})`,THINKING);
+    if(thinking===undefined)return undefined;
+   }
+  }
+  if(role.key==='coordinator')profile.coordinator={id,thinking};else profile.stages[role.key]={id,thinking};
+ }
+ return profile;
+}
+export function modelLabel(model){
+ const parts=[];
+ if(model.contextWindow)parts.push(model.contextWindow+' ctx');
+ if(model.reasoning)parts.push('reasoning');
+ return parts.length?`${model.id} (${parts.join(', ')})`:model.id;
+}
+/**
+ * Thinking levels selectable for a model. `thinkingLevelMap` (catalog-derived, from
+ * the Pi model registry) maps levels to provider values; keys whose value is null
+ * are unsupported by the provider and are omitted. Models without a map may use
+ * every level. Non-reasoning models keep only "off".
+ */
+export function thinkingLevelsFor(model){
+ if(!model?.reasoning)return ['off'];
+ const map=model.thinkingLevelMap;
+ if(map&&Object.keys(map).length)return THINKING.filter(level=>map[level]!==null);
+ return THINKING;
 }
 function manifestAt(suite){
  const contents=read(join(suite,META,'manifest.json'));
@@ -114,7 +193,7 @@ function withLock(suite,action){
 export function install({suite=suiteDirectory(),profile:selection,adopt=false,dryRun=false}={}){
  suite=resolve(suite);
  const apply=()=>{
-  const profile=loadProfile(suite,selection);
+  const profile=typeof selection==='object'&&selection!==null?selection:loadProfile(suite,selection);
   const desired=renderResources(suite,profile);
   const old=manifestAt(suite);
   const conflicts=[];

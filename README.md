@@ -16,7 +16,7 @@ Requires Node.js 22+, Pi, `pi-agent-suite`, Git, and an authenticated GitHub CLI
 
 ```sh
 pi install npm:pi-agent-suite
-pi install git:github.com/javiyt/pi-github-delivery@v0.1.1
+pi install git:github.com/javiyt/pi-github-delivery
 ```
 
 Restart Pi, then configure the resources once:
@@ -70,6 +70,20 @@ node bin/setup.mjs --profile /path/to/my-profile.json
 
 Alternatively, edit the local preferences file and run `/issue-setup` without arguments. `/issue-setup current` returns to the selected model. The reviewer uses the review stage's model; the general worker inherits the active stage's settings. The coordinator also switches models by stage.
 
+### Selecting models interactively
+
+```text
+/issue-setup --select
+```
+
+Walks through the coordinator and every workflow stage with Pi's model picker: choose the model for each role from all registered chat models (or type a `provider/model` ID for a model that is not listed), then choose its thinking level. The resulting profile is saved to `<suite>/github-issue-delivery/models.json` and applied to the workflow. Cancelling at any prompt leaves the previous profile and resources unchanged.
+
+The same selection runs from a terminal without Pi:
+
+```sh
+node bin/setup.mjs --select
+```
+
 ## Updating and existing files
 
 To follow updates on the main branch, install without a tag:
@@ -122,7 +136,7 @@ Before removing the package, run:
 This removes unmodified managed resources and restores adopted files from their original backups, if applicable. Backups, model preferences, and issue artifacts are preserved. Then remove the package:
 
 ```sh
-pi remove git:github.com/javiyt/pi-github-delivery@v0.1.1
+pi remove git:github.com/javiyt/pi-github-delivery
 ```
 
 Use the same source you originally installed. This does not uninstall pi-agent-suite.
