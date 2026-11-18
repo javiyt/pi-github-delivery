@@ -1,0 +1,7 @@
+# review
+
+Goal: A fresh independent GitHubDeliveryReviewer subagent has reviewed the current diff and returned APPROVE with no unresolved blocking findings.
+
+Perform an independent review yourself as GitHubDeliveryReviewer. Read the exact issue, context.md, plan.md, implementation.md and local-checks.md paths from the handoff. Inspect current branch, HEAD, committed diff against origin/<base>, staged/unstaged changes and untracked files. Check every acceptance criterion, correctness, design, security, tests, backwards compatibility and performance. You may inspect source and GitHub read-only, and write only review evidence in the supplied external state directory. Do not mutate repository files or GitHub and do not delegate. Write the COMPLETE review to the immutable attempt directory and review.md, including DECISION: APPROVE | REQUEST_CHANGES | BLOCKED, REVIEWED_HEAD, diff fingerprint, acceptance mapping, evidence-backed severity/file/line findings, verification advice, validation gaps and summary. APPROVE requires all acceptance criteria and no unresolved blocking/major findings. Return only the compact receipt specified in the artifact contract.
+
+Read the shared rules and artifact contract supplied in your handoff. Execute ONLY this stage. Any instruction above to transition means record the recommended transition/ground in result.json; only the coordinator calls workflow tools. Write all evidence before returning. Never rely on another agent conversation.

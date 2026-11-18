@@ -1,0 +1,21 @@
+{
+  "name": "pi-github-delivery",
+  "version": "0.1.0",
+  "description": "Deliver GitHub issues with /issue, fresh stage subagents, detailed artifacts and a UI-only progress panel for Pi Agent Suite.",
+  "type": "module",
+  "license": "MIT",
+  "author": "javiyt",
+  "repository": {"type":"git","url":"https://github.com/javiyt/pi-github-delivery.git"},
+  "bugs": {"url":"https://github.com/javiyt/pi-github-delivery/issues"},
+  "homepage": "https://github.com/javiyt/pi-github-delivery#readme",
+  "keywords": ["pi-package", "pi-agent-suite", "github", "workflow", "subagents"],
+  "engines": {"node": ">=22"},
+  "files": ["extensions/", "src/", "bin/", "resources/", "profiles/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "bin": {"pi-github-delivery-setup":"./bin/setup.mjs"},
+  "pi": {"extensions":["./extensions/issue.ts", "./extensions/setup.ts", "./extensions/subagent-progress.ts"]},
+  "scripts": {"test":"node --test tests/*.test.mjs", "setup":"node bin/setup.mjs", "check":"npm test && npm pack --dry-run"},
+  "dependencies": {"yaml":"^2.8.1"},
+  "devDependencies": {"jiti":"^2.6.1"},
+  "peerDependencies": {"@earendil-works/pi-coding-agent":"*", "@earendil-works/pi-tui":"*"},
+  "peerDependenciesMeta": {"@earendil-works/pi-coding-agent":{"optional":true}, "@earendil-works/pi-tui":{"optional":true}}
+}

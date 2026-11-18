@@ -1,0 +1,181 @@
+version: 3
+description: Deliver a GitHub issue through fresh stage subagents, detailed artifacts, independent review and CI, with optional squash merge
+prompt: "{{rules/github-issue-coordinator.md}}"
+stages:
+  - id: repository_setup
+    description: Prepare the repository by checking out the default branch, pulling latest changes and removing orphan branches using lightweight model
+    goal: The working tree is clean, based on the remote default branch with all latest changes pulled and orphan branches removed.
+    initial: true
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: off
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/repository_setup.md
+      Required goal: The working tree is clean, based on the remote default branch with all latest changes pulled and orphan branches removed.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: investigate
+    description: Investigate the issue, related GitHub work and repository conventions
+    goal: The issue, acceptance criteria, linked issues and PRs, dependencies, code and baseline checks are understood and documented.
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: low
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/investigate.md
+      Required goal: The issue, acceptance criteria, linked issues and PRs, dependencies, code and baseline checks are understood and documented.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: plan
+    description: Produce an implementation plan from confirmed GitHub context
+    goal: A scoped plan with file changes, tests, risks, dependencies and acceptance criteria is recorded and internally checked.
+    model:
+      id: omlx/Qwen3.8-27B-4bit
+      thinking: medium
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/plan.md
+      Required goal: A scoped plan with file changes, tests, risks, dependencies and acceptance criteria is recorded and internally checked.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: implement
+    description: Implement the plan and resolve findings from local checks, review or CI
+    goal: The scoped implementation and associated tests cover the approved acceptance criteria, and changes remain on the issue branch.
+    model:
+      id: omlx/Qwen3-Coder-30B-A3B-Instruct-MLX-6bit
+      thinking: off
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/implement.md
+      Required goal: The scoped implementation and associated tests cover the approved acceptance criteria, and changes remain on the issue branch.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: local_verify
+    description: Run local equivalents of CI checks
+    goal: All runnable local checks relevant to the issue pass, or an evidenced external/pre-existing blocker is explicitly identified.
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: low
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/local_verify.md
+      Required goal: All runnable local checks relevant to the issue pass, or an evidenced external/pre-existing blocker is explicitly identified.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: review
+    description: Independently review changes against the issue and plan
+    goal: A fresh independent GitHubDeliveryReviewer has reviewed the current complete diff and saved APPROVE with no unresolved blocking findings.
+    model:
+      id: omlx/GLM-4.7-Flash-MLX-8bit
+      thinking: off
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryReviewer session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/review.md
+      Required goal: A fresh independent GitHubDeliveryReviewer has reviewed the current complete diff and saved APPROVE with no unresolved blocking findings.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+      Use APPROVE only from the independent reviewer for the current complete diff. REQUEST_CHANGES recommends implement with blocking_review_findings; BLOCKED stops advancement.
+  - id: publish
+    description: Commit and push, then open or update a pull request
+    goal: The issue branch is pushed and exactly one open PR targets the correct default branch, links the issue and describes local evidence.
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: off
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/publish.md
+      Required goal: The issue branch is pushed and exactly one open PR targets the correct default branch, links the issue and describes local evidence.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: ci
+    description: Wait for current-head GitHub checks and repair failures
+    goal: All applicable GitHub CI checks for the latest PR head SHA have completed successfully, and branch protections are not bypassed.
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: low
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/ci.md
+      Required goal: All applicable GitHub CI checks for the latest PR head SHA have completed successfully, and branch protections are not bypassed.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+  - id: merge
+    description: Squash-merge the verified PR without bypassing protections
+    goal: The correct PR is squash-merged into the intended default branch and the merge is verified with GitHub.
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: off
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/merge.md
+      Required goal: The correct PR is squash-merged into the intended default branch and the merge is verified with GitHub.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+      Before dispatch verify handoff.json mergePolicy is auto. Missing or manual policy prohibits entering or executing merge.
+  - id: report
+    description: Produce a final issue delivery report and clean up safe local artifacts
+    goal: The user receives a complete, evidence-based status report with issue, branch, changes, local checks, review, PR, CI, merge, Projects and orphan branches.
+    final: true
+    model:
+      id: omlx/Qwen3.5-9B-MLX-8bit
+      thinking: low
+    prompt: |-
+      Delegate this entire stage to a NEW GitHubDeliveryWorker session using subagent_start with agentId, taskName and prompt. Follow the coordinator protocol; do not execute the stage yourself.
+      Task file: @@WORKFLOW_DIR@@/rules/stages/report.md
+      Required goal: The user receives a complete, evidence-based status report with issue, branch, changes, local checks, review, PR, CI, merge, Projects and orphan branches.
+      Pass the task file, shared rules, artifact contract, state/run/attempt paths and input artifact references. Wait for completion, inspect result.json and verify artifact/goal evidence before transitioning. On rework always start a NEW session; never steer or reuse a previous child.
+      Read report.md and present its factual final status and artifact directory to the user, then complete the workflow.
+      When mergePolicy is manual, report the PR as ready for manual merge and state that merge was skipped by user choice, not blocked.
+transitions:
+  - from: repository_setup
+    to: investigate
+    type: advance
+  - from: investigate
+    to: plan
+    type: advance
+  - from: plan
+    to: implement
+    type: advance
+  - from: implement
+    to: local_verify
+    type: advance
+  - from: local_verify
+    to: review
+    type: advance
+  - from: review
+    to: publish
+    type: advance
+  - from: publish
+    to: ci
+    type: advance
+  - from: ci
+    to: merge
+    type: advance
+    grounds:
+      - id: auto_merge_enabled
+        when: The immutable run mergePolicy is auto and all latest-head CI and review gates pass.
+  - from: merge
+    to: report
+    type: advance
+  - from: implement
+    to: plan
+    type: rework
+    grounds:
+      - id: invalid_plan
+        when: New validated evidence makes the saved plan wrong or broadens the requested issue scope.
+  - from: local_verify
+    to: implement
+    type: rework
+    grounds:
+      - id: failing_local_checks
+        when: Local tests, lint, security checks or coverage reveal change-caused failures requiring code fixes.
+  - from: review
+    to: implement
+    type: rework
+    grounds:
+      - id: blocking_review_findings
+        when: The independent reviewer identifies verified blocking defects or missing acceptance criteria.
+  - from: ci
+    to: implement
+    type: rework
+    grounds:
+      - id: failing_ci_checks
+        when: CI on the current PR head reveals a change-caused failure requiring code changes.
+  - from: ci
+    to: report
+    type: advance
+    grounds:
+      - id: manual_merge_selected
+        when: The immutable run mergePolicy is manual; all latest-head CI and review gates pass, and the PR must remain open for manual merge.

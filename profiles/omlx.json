@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "coordinator": {"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"off"},
+  "stages": {
+    "repository_setup":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"off"},
+    "investigate":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"low"},
+    "plan":{"id":"omlx/Qwen3.8-27B-4bit", "thinking":"medium"},
+    "implement":{"id":"omlx/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit", "thinking":"off"},
+    "local_verify":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"low"},
+    "review":{"id":"omlx/GLM-4.7-Flash-MLX-8bit", "thinking":"off"},
+    "publish":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"off"},
+    "ci":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"low"},
+    "merge":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"off"},
+    "report":{"id":"omlx/Qwen3.5-9B-MLX-8bit", "thinking":"low"}
+  }
+}
