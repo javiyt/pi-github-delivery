@@ -1,6 +1,6 @@
 {
   "name": "pi-github-delivery",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deliver GitHub issues with /issue, fresh stage subagents, detailed artifacts and a UI-only progress panel for Pi Agent Suite.",
   "type": "module",
   "license": "MIT",

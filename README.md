@@ -1,133 +1,133 @@
 # Pi GitHub Delivery
 
-Implementa una issue de GitHub desde Pi con un solo comando:
+Implement a GitHub issue from Pi with a single command:
 
 ```text
 /issue https://github.com/owner/repo/issues/123
 ```
 
-Selecciona el agente adecuado, inicia el workflow desde su primera etapa y coordina investigación, planificación, implementación, verificación local, revisión independiente, publicación de PR, CI, squash merge e informe final, con merge opcional. Cada etapa y reintento trabaja en una sesión nueva de subagente. El contexto útil pasa mediante artefactos detallados fuera del repositorio.
+The command selects the delivery agent, starts the workflow at its first stage, and coordinates investigation, planning, implementation, local validation, independent review, PR publication, CI, optional squash merge, and a final report. Every stage and retry runs in a fresh subagent session. Detailed artifacts outside the repository carry the context between stages.
 
-Incluye un panel de actividad sobre el editor que muestra las respuestas y salidas de herramientas del subagente activo sin incorporarlas al contexto del coordinador.
+A progress panel above the editor displays the active subagent's responses and tool output without adding them to the coordinator's context.
 
-## Instalación
+## Installation
 
-Requiere Node.js 22+, Pi, `pi-agent-suite`, Git y GitHub CLI autenticado. Se ha validado localmente con Pi 1.5.0 y pi-agent-suite 2.22.3. El paquete no incluye ni modifica las credenciales de GitHub o de proveedores de modelos.
+Requires Node.js 22+, Pi, `pi-agent-suite`, Git, and an authenticated GitHub CLI. Locally validated with Pi 1.5.0 and pi-agent-suite 2.22.3. This package does not include or modify GitHub or model-provider credentials.
 
 ```sh
 pi install npm:pi-agent-suite
-pi install git:github.com/javiyt/pi-github-delivery@v0.1.0
+pi install git:github.com/javiyt/pi-github-delivery@v0.1.1
 ```
 
-Reinicia Pi. Configura los recursos una vez:
+Restart Pi, then configure the resources once:
 
 ```text
 /issue-setup
 ```
 
-El comando instala los agentes, reglas y workflow y recarga Pi. Después, desde el repositorio donde quieras trabajar:
+This installs the agents, rules, and workflow, then reloads Pi. From the repository you want to work on, run:
 
 ```text
 /issue https://github.com/owner/repo/issues/123
 ```
 
-También admite `/issue 123` o `/issue #123` contra el repositorio actual. No acepta URLs de pull requests. No hace falta seleccionar agentes ni activar workflows manualmente.
+You can also use `/issue 123` or `/issue #123` against the current repository. Pull request URLs are not accepted. You do not need to select agents or activate workflows manually.
 
-Al iniciar, Pi pregunta si debe fusionar la PR automáticamente o dejarla abierta. También puedes fijarlo en el comando:
+At startup, Pi asks whether to merge the PR automatically or leave it open. You can also specify the policy directly:
 
 ```text
 /issue https://github.com/owner/repo/issues/123 --no-merge
 /issue https://github.com/owner/repo/issues/123 --merge
 ```
 
-`--no-merge` realiza implementación, verificación, revisión, publicación y CI; después pasa directamente al informe y deja la PR abierta para merge manual. `--merge` añade la etapa de squash merge, siempre condicionada a los controles del repositorio. Cancelar la selección no inicia trabajo. Sin interfaz interactiva hay que indicar una de las dos opciones. La política se conserva en los artefactos de la ejecución y el contenido de una issue no puede cambiarla.
+`--no-merge` runs implementation, validation, review, publication, and CI, then moves directly to the final report and leaves the PR open for manual merge. `--merge` adds the squash-merge stage, subject to the repository's safeguards. Canceling the selection starts no work. Non-interactive use requires an explicit option. The policy is saved in the run artifacts; issue content cannot override it.
 
-La instalación inicial usa el modelo seleccionado en Pi para todas las etapas y para el revisor, siempre en sesiones independientes. Debe ser un modelo que soporte herramientas. El workflow comprueba el repositorio y los requisitos del ticket antes de cambiar código.
+The initial configuration uses the model selected in Pi for every stage and the reviewer, in independent sessions. Choose a model that supports tools. The workflow checks the repository and issue requirements before changing code.
 
-## Modelos por etapa
+## Models by stage
 
-El perfil opcional de oMLX reproduce esta distribución:
+The optional oMLX profile uses this allocation:
 
 ```text
 /issue-setup omlx
 ```
 
-| Trabajo | Modelo | Thinking |
+| Work | Model | Thinking |
 | --- | --- | --- |
-| Preparación, publicación y merge | Qwen3.5-9B-MLX-8bit | off |
-| Investigación, verificación, CI e informe | Qwen3.5-9B-MLX-8bit | low |
-| Planificación | Qwen3.8-27B-4bit | medium |
-| Implementación | Qwen3-Coder-30B-A3B-Instruct-MLX-4bit | off |
-| Revisión | GLM-4.7-Flash-MLX-8bit | off |
+| Repository setup, publication, and merge | Qwen3.5-9B-MLX-8bit | off |
+| Investigation, validation, CI, and reporting | Qwen3.5-9B-MLX-8bit | low |
+| Planning | Qwen3.8-27B-4bit | medium |
+| Implementation | Qwen3-Coder-30B-A3B-Instruct-MLX-4bit | off |
+| Review | GLM-4.7-Flash-MLX-8bit | off |
 
-Todos usan el proveedor `omlx`. Instala los modelos y registra sus IDs en Pi antes de ejecutar `/issue`; este paquete no descarga modelos, no configura servidores ni altera `models.json`. Las preferencias se guardan en `<suite>/github-issue-delivery/models.json` y se conservan al actualizar.
+All use the `omlx` provider. Install the models and register their IDs in Pi before running `/issue`. This package does not download models, configure inference servers, or modify Pi's `models.json`. Preferences are saved in `<suite>/github-issue-delivery/models.json` and preserved across updates.
 
-Para otro proveedor, copia `profiles/current.json`, añade entradas `coordinator` y `stages` con `{ "id": "provider/model", "thinking": "medium" }`, e instálalo desde la CLI:
+For another provider, copy `profiles/current.json`, add `coordinator` and `stages` entries using `{ "id": "provider/model", "thinking": "medium" }`, and install the profile through the CLI:
 
 ```sh
-node bin/setup.mjs --profile /ruta/a/mi-perfil.json
+node bin/setup.mjs --profile /path/to/my-profile.json
 ```
 
-O edita el archivo local de preferencias y ejecuta `/issue-setup` sin argumentos. `/issue-setup current` vuelve al modelo seleccionado. El revisor adopta el modelo de la etapa de revisión; el trabajador general hereda el de la etapa activa. El coordinador también cambia de modelo según la etapa.
+Alternatively, edit the local preferences file and run `/issue-setup` without arguments. `/issue-setup current` returns to the selected model. The reviewer uses the review stage's model; the general worker inherits the active stage's settings. The coordinator also switches models by stage.
 
-## Actualización y archivos existentes
+## Updating and existing files
 
-Para seguir las actualizaciones de la rama principal, instala sin el tag:
+To follow updates on the main branch, install without a tag:
 
 ```sh
 pi install git:github.com/javiyt/pi-github-delivery
 pi update --extensions
 ```
 
-Después reinicia Pi y ejecuta `/issue-setup`. Una instalación fijada a un tag no cambia automáticamente de versión; instala otro tag para actualizarla.
+Then restart Pi and run `/issue-setup`. An installation pinned to a tag does not automatically move to another version; install a newer tag to upgrade it.
 
-El instalador sólo gestiona sus recursos. Detecta archivos existentes o modificados y se detiene antes de sustituirlos. Para adoptar una configuración anterior de este workflow, revisa primero:
+The installer manages only its own resources. It detects existing or locally modified files and stops before replacing them. To adopt an earlier configuration of this workflow, inspect the changes first:
 
 ```text
 /issue-setup omlx --dry-run --adopt
 /issue-setup omlx --adopt
 ```
 
-`--adopt` guarda copias de seguridad antes de reemplazar recursos. Las actualizaciones normales se permiten cuando los archivos gestionados coinciden con su última instalación. Personaliza modelos mediante el perfil local; una edición directa de las reglas se considera un cambio que necesita revisión antes de actualizar.
+`--adopt` creates backups before replacing resources. Normal updates are allowed when managed files match their last installed contents. Customize models through the local profile; direct edits to rules are treated as local changes that require review before updating.
 
-Si ya tenías las extensiones independientes `github-issue-delivery.ts` y `subagent-progress.ts` en `~/.pi/agent/extensions/`, muévelas a un directorio de copias de seguridad fuera de `extensions/` antes de cargar este paquete. Así evitas duplicar `/issue` y el panel. Conserva esas copias si quieres poder volver a la instalación anterior.
+If you previously installed the standalone `github-issue-delivery.ts` and `subagent-progress.ts` extensions in `~/.pi/agent/extensions/`, move them to a backup directory outside `extensions/` before loading this package. This avoids duplicate `/issue` commands and progress panels. Keep the backups if you want to restore the earlier installation.
 
-## Panel visual
+## Progress panel
 
-- `/subagent-progress off`: ocultar el panel.
-- `/subagent-progress on`: mostrarlo.
-- `/subagent-progress clear`: quitar lo mostrado hasta la siguiente actualización.
-- `/subagents` o `Ctrl+Alt+S`: abrir el historial completo de agent-suite.
+- `/subagent-progress off`: hide the panel.
+- `/subagent-progress on`: show it.
+- `/subagent-progress clear`: clear the display until the next subagent update.
+- `/subagents` or `Ctrl+Alt+S`: open agent-suite's full history view.
 
-El panel muestra hasta seis líneas recientes, con una actualización aproximada cada 600 ms. En concurrencia, muestra el subagente activo con actividad más reciente e indica cuántos siguen activos. No muestra thinking ni todos los tokens. Usa archivos temporales separados por sesión, sin llamadas al modelo ni mensajes adicionales en su contexto. Pi sigue guardando sus sesiones y entregando los recibos finales de agent-suite.
+The panel displays up to six recent lines and refreshes approximately every 600 ms. With concurrent subagents, it shows the active session with the most recent activity and indicates how many sessions are active. It does not display thinking or every token. It uses temporary files separated by root session, with no model calls or additional context messages. Pi continues saving its sessions and delivering agent-suite's final receipts.
 
-Los hijos necesitan cargar esta extensión. La configuración predeterminada de agent-suite (`subagents.extensions.mode: all`) lo permite. En modo `explicit`, incluye `extensions/subagent-progress.ts` de este paquete; en modo `none` no se podrá mostrar la actividad del hijo.
+Child processes must load this extension. Agent-suite's default configuration (`subagents.extensions.mode: all`) allows this. In `explicit` mode, include this package's `extensions/subagent-progress.ts`; in `none` mode, child activity cannot be displayed.
 
-## Artefactos y controles
+## Artifacts and safeguards
 
-Se guardan en `$HOME/.pi/agent/issue-delivery/<OWNER>/<REPO>/<NUMBER>/`: petición original, investigación, plan, implementación, validación, revisión, publicación, CI, merge e informe, junto con logs y resultados por intento. Se conservan las evidencias fallidas y los contadores de reintento. No se incluyen en commits.
+Artifacts are saved under `$HOME/.pi/agent/issue-delivery/<OWNER>/<REPO>/<NUMBER>/`: the original request, research, plan, implementation, validation, review, publication, CI, merge, and final report, with logs and results for each attempt. Failed evidence and retry counters are preserved. These files are excluded from delivery commits.
 
-El workflow preserva trabajo no relacionado, evita force-push y limpieza destructiva, exige revisión y validación y verifica la CI del HEAD actual antes del merge. Tiene límites de reintentos y se detiene ante bloqueos. `/issue` autoriza abrir/actualizar la PR. El squash merge sólo está autorizado cuando has seleccionado la política automática al inicio y se cumplen todos los controles y protecciones del repositorio.
+The workflow preserves unrelated work, avoids force-push and destructive cleanup, requires review and validation, and checks CI for the current HEAD before merging. Retries are bounded, and the workflow stops when blocked. `/issue` authorizes opening or updating the PR. Squash merge is authorized only when you select automatic merge at startup and all repository checks and protection requirements pass.
 
-El proceso debe permanecer activo en Pi para vigilar CI y corregir fallos. Las sesiones de los subagentes son nuevas, pero comparten el sistema de archivos. El coordinador conserva llamadas y recibos breves. Las instrucciones de lectura/escritura y de revisión son políticas de agente, no un sandbox del sistema operativo. No se garantiza que un modelo siga siempre las instrucciones; verifica los resultados antes de usarlo en repositorios importantes.
+Pi must remain running to watch CI and fix failures. Subagent conversations are fresh, but they share the filesystem. The coordinator retains brief dispatches and receipts. Read/write and reviewer restrictions are agent policies, not an operating-system sandbox. Models are not guaranteed to follow every instruction; verify results before using this workflow on important repositories.
 
-## Desinstalación
+## Uninstalling
 
-Antes de retirar el paquete:
+Before removing the package, run:
 
 ```text
 /issue-setup --uninstall
 ```
 
-Esto elimina los recursos gestionados que no se hayan modificado y restaura los archivos anteriores adoptados, si los había. Conserva copias de seguridad, preferencias de modelos y artefactos de issues. Después:
+This removes unmodified managed resources and restores adopted files from their original backups, if applicable. Backups, model preferences, and issue artifacts are preserved. Then remove the package:
 
 ```sh
-pi remove git:github.com/javiyt/pi-github-delivery@v0.1.0
+pi remove git:github.com/javiyt/pi-github-delivery@v0.1.1
 ```
 
-Usa la misma fuente con la que instalaste el paquete. No se desinstala pi-agent-suite.
+Use the same source you originally installed. This does not uninstall pi-agent-suite.
 
-## Desarrollo
+## Development
 
 ```sh
 npm ci --ignore-scripts
@@ -135,15 +135,15 @@ npm test
 npm pack --dry-run
 ```
 
-Para instalar desde un checkout local:
+To install from a local checkout:
 
 ```sh
 pi install ./
 node bin/setup.mjs --profile omlx --dry-run
 ```
 
-`PI_AGENT_SUITE_DIR` cambia el directorio de agent-suite. La CLI también acepta `--suite-dir DIR`, `--profile current|omlx|FILE`, `--adopt`, `--dry-run` y `--uninstall`. El comando dentro de Pi respeta su directorio de agentes activo.
+`PI_AGENT_SUITE_DIR` overrides the agent-suite directory. The CLI also accepts `--suite-dir DIR`, `--profile current|omlx|FILE`, `--adopt`, `--dry-run`, and `--uninstall`. Commands inside Pi respect its active agent directory.
 
-Las pruebas usan directorios temporales y dobles de las APIs de Pi: verifican el instalador, conflictos y restauración, los comandos y el canal visual. No implementan ni fusionan issues reales. La CI comprueba Node.js 22 y 24. El código del workflow está en `resources/`; las rutas de instalación se resuelven al configurar el paquete.
+Tests use temporary directories and Pi API test doubles to verify installation, conflict handling, restoration, commands, and the visual progress channel. They do not implement or merge real issues. CI runs on Node.js 22 and 24. Workflow source files live in `resources/`; installation paths are resolved during setup.
 
-Licencia MIT. [Paquetes de Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) · [Pi Agent Suite](https://github.com/n-r-w/pi-agent-suite).
+MIT license. [Pi packages](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) · [Pi Agent Suite](https://github.com/n-r-w/pi-agent-suite).

@@ -67,7 +67,7 @@ test('live tool output reaches only its root widget, without conversation APIs',
   worker.emit('agent_end');
   await pause();
   assert(main.lines[0].includes('✗'));
-  assert(main.lines[0].includes('Interrumpido'));
+  assert(main.lines[0].includes('Aborted'));
   const dir=channelDirectory(root);
   for(const name of fs.readdirSync(dir)) assert.equal(fs.statSync(dir+'/'+name).mode & 0o777,0o600);
   assert.equal(fs.statSync(dir).mode & 0o777,0o700);

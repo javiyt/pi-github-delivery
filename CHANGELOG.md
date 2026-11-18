@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.1] - 2026-11-18
+
+- Translate the README, command help, notifications, merge-policy selection, generated workflow requests and progress panel into English.
+- Preserve existing workflow behavior, model profiles and merge-policy safeguards.
+
 ## [0.1.0] - 2026-11-18
 
 - `/issue URL` starts GitHub issue delivery from repository setup through an evidenced final report.

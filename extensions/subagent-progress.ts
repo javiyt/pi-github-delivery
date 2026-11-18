@@ -69,7 +69,7 @@ function readSnapshots(directory: string, root: string): Snapshot[] {
               !Number.isFinite(s.updatedAt) || Date.now() - s.updatedAt > MAX_AGE_MS) return [];
           if (s.status === "working" && !processAlive(s.pid)) {
             s.status = "error";
-            s.activity = "Proceso finalizado sin recibo";
+            s.activity = "Process ended without a completion receipt";
           }
           return [s as Snapshot];
         } catch { return []; }
@@ -115,16 +115,16 @@ export default function subagentProgress(pi: ExtensionAPI) {
       const id = createHash("sha256").update(session).digest("hex").slice(0, 32);
       target = join(directory, `${id}.json`);
       snapshot = { version: 1, pid: process.pid, root: rootId, session,
-        agent: clean(process.env.PI_SUBAGENT_AGENT_ID ?? "Subagente").slice(0, 100), model: "",
-        status: "working", activity: "Iniciando", text: "", updatedAt: Date.now() };
+        agent: clean(process.env.PI_SUBAGENT_AGENT_ID ?? "Subagent").slice(0, 100), model: "",
+        status: "working", activity: "Starting", text: "", updatedAt: Date.now() };
       update({}, ctx, true);
     });
-    pi.on("agent_start", (_event, ctx) => update({ status: "working", activity: "Generando respuesta", text: "" }, ctx));
+    pi.on("agent_start", (_event, ctx) => update({ status: "working", activity: "Generating response", text: "" }, ctx));
     pi.on("message_update", (event, ctx) => {
       const message = event.message as { role?: string };
       if (message.role !== "assistant") return;
       const text = clean(visibleText(message));
-      if (text) update({ activity: "Respuesta", text }, ctx);
+      if (text) update({ activity: "Response", text }, ctx);
     });
     pi.on("message_end", (event, ctx) => {
       const message = event.message as { role?: string; stopReason?: string };
@@ -132,7 +132,7 @@ export default function subagentProgress(pi: ExtensionAPI) {
       const text = clean(visibleText(message));
       update({ ...(text ? { text } : {}),
         ...(message.stopReason === "error" || message.stopReason === "aborted"
-          ? { status: "error" as const, activity: message.stopReason === "aborted" ? "Interrumpido" : "Error del modelo" } : {}) }, ctx);
+          ? { status: "error" as const, activity: message.stopReason === "aborted" ? "Aborted" : "Model error" } : {}) }, ctx);
     });
     pi.on("tool_execution_start", (event, ctx) => {
       const args = event.args as Record<string, unknown> | undefined;
@@ -144,12 +144,12 @@ export default function subagentProgress(pi: ExtensionAPI) {
       if (text) update({ activity: clean(event.toolName).slice(0, 500), text }, ctx);
     });
     pi.on("tool_execution_end", (event, ctx) => {
-      update({ activity: clean(`${event.isError ? "Error" : "Completado"} · ${event.toolName}`).slice(0, 500),
+      update({ activity: clean(`${event.isError ? "Error" : "Completed"} · ${event.toolName}`).slice(0, 500),
         text: clean(visibleText(event.result)) }, ctx, true);
     });
     const finish = (ctx: ExtensionContext) => update({
       status: snapshot?.status === "error" ? "error" : "finished",
-      activity: snapshot?.status === "error" ? snapshot.activity : "Finalizado",
+      activity: snapshot?.status === "error" ? snapshot.activity : "Finished",
     }, ctx, true);
     pi.on("agent_end", (_event, ctx) => finish(ctx));
     pi.on("session_shutdown", (_event, ctx) => finish(ctx));
@@ -175,10 +175,10 @@ export default function subagentProgress(pi: ExtensionAPI) {
     const active = snapshots.filter(v => v.status === "working").length;
     const icon = s.status === "working" ? "●" : s.status === "error" ? "✗" : "✓";
     const lines = [
-      `${icon} ${clean(s.agent)} · ${clean(s.activity)}${active > 1 ? ` · ${active} activos` : ""}`,
+      `${icon} ${clean(s.agent)} · ${clean(s.activity)}${active > 1 ? ` · ${active} active` : ""}`,
       clean(s.model),
       ...clean(s.text).split("\n").filter(v => v.trim()).slice(-6),
-      "/subagent-progress off · /subagents para el historial completo",
+      "/subagent-progress off · /subagents for full history",
     ];
     const signature = JSON.stringify(lines);
     if (signature === lastView) return;
@@ -200,7 +200,7 @@ export default function subagentProgress(pi: ExtensionAPI) {
     refresh();
   });
   pi.registerCommand("subagent-progress", {
-    description: "Panel visual de subagentes: on, off o clear; no añade contexto al modelo",
+    description: "Visual subagent progress: on, off or clear; adds no model context",
     handler: async (args, ctx) => {
       const option = args.trim().toLowerCase();
       if (!ctx.hasUI) return;
@@ -215,7 +215,7 @@ export default function subagentProgress(pi: ExtensionAPI) {
       } else if (option === "on" || option === "") {
         enabled = true;
         refresh();
-      } else ctx.ui.notify("Uso: /subagent-progress [on|off|clear]", "info");
+      } else ctx.ui.notify("Usage: /subagent-progress [on|off|clear]", "info");
     },
   });
   pi.on("session_shutdown", () => {

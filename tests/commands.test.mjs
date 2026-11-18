@@ -33,8 +33,8 @@ test('/issue selects agent first then starts the initial workflow with authoriza
  assert.deepEqual(h.sent[0],['/agent GitHubDelivery',{expandPromptTemplates:true}]);
  assert(h.sent[1][0].includes('repository_setup'));
  assert(h.sent[1][0].includes('MERGE_POLICY: auto'));
- assert(h.sent[1][0].includes('squash merge'));
- assert(h.sent[1][0].includes('subagentes nuevos'));
+ assert(h.sent[1][0].includes('Squash merge'));
+ assert(h.sent[1][0].includes('fresh subagent sessions'));
  assert.deepEqual(h.notices,[]);
 });
 test('/issue does not start work when unconfigured, busy, locally edited or models unavailable',async t=>{
@@ -44,7 +44,7 @@ test('/issue does not start work when unconfigured, busy, locally edited or mode
  install({suite:join(h.directory,'agent-suite'),profile:'omlx'});
  h.ctx.isIdle=()=>false;await command.handler('12',h.ctx);assert.equal(h.sent.length,0);
  h.ctx.isIdle=()=>true;h.ctx.modelRegistry.find=()=>undefined;
- await command.handler('12',h.ctx);assert.equal(h.sent.length,0);assert(h.notices.at(-1)[0].includes('Modelo no registrado'));
+ await command.handler('12',h.ctx);assert.equal(h.sent.length,0);assert(h.notices.at(-1)[0].includes('Model not registered'));
  h.ctx.modelRegistry.find=()=>({});
  fs.appendFileSync(join(h.directory,'agent-suite/agent-selection/agents/GitHubDelivery.md'),'local edit');
  await command.handler('12',h.ctx);assert.equal(h.sent.length,0);
@@ -68,7 +68,7 @@ test('explicit no-merge leaves a persistent manual policy and forbids merge auth
  await h.commands.get('issue').handler('12 --no-merge',h.ctx);
  assert.equal(h.sent.length,2);
  assert(h.sent[1][0].includes('MERGE_POLICY: manual'));
- assert(h.sent[1][0].includes('No ejecutes merge ni actives auto-merge'));
+ assert(h.sent[1][0].includes('Do not merge or enable auto-merge'));
  assert(h.sent[1][0].includes('handoff.json'));
 });
 test('without a flag asks once before starting; cancel starts nothing',async t=>{
@@ -83,5 +83,5 @@ test('without a flag asks once before starting; cancel starts nothing',async t=>
 test('non-interactive execution requires an explicit merge option',async t=>{
  const h=harness(t);install({suite:join(h.directory,'agent-suite')});h.ctx.hasUI=false;
  await h.commands.get('issue').handler('12',h.ctx);assert.equal(h.sent.length,0);
- assert(h.notices.at(-1)[0].includes('--merge o --no-merge'));
+ assert(h.notices.at(-1)[0].includes('--merge or --no-merge'));
 });

@@ -29,52 +29,52 @@ export function parseIssueArgs(input:string):{ticket:string;mergePolicy:'auto'|'
 export default function issueCommand(pi:ExtensionAPI){
  if(Number(process.env.PI_SUBAGENT_DEPTH??0)>0)return;
  pi.registerCommand('issue',{
-  description:'Implementar una issue: /issue URL [--merge|--no-merge]; sin opción pregunta al inicio',
+  description:'Implement an issue: /issue URL [--merge|--no-merge]; prompts at startup if omitted',
   handler:async(args,ctx)=>{
    const parsed=parseIssueArgs(args);
-   if(!parsed){ctx.ui.notify('Uso: /issue URL|NUMERO [--merge|--no-merge]','warning');return;}
+   if(!parsed){ctx.ui.notify('Usage: /issue URL|NUMBER [--merge|--no-merge]','warning');return;}
    const {ticket}=parsed;
-   if(!ctx.isIdle()){ctx.ui.notify('Espera a que termine la ejecución actual antes de iniciar otra issue.','warning');return;}
+   if(!ctx.isIdle()){ctx.ui.notify('Wait for the current run to finish before starting another issue.','warning');return;}
    try{
     const suite=suiteDirectory(getAgentDir());
     const status=installationStatus(suite);
-    if(!status.installed||status.version!==VERSION){ctx.ui.notify('Ejecuta /issue-setup para instalar o actualizar el workflow; después repite /issue.','warning');return;}
-    if(status.changed.length){ctx.ui.notify('Hay recursos modificados o ausentes. Revisa /issue-setup antes de ejecutar: '+status.changed.join(', '),'warning');return;}
+    if(!status.installed||status.version!==VERSION){ctx.ui.notify('Run /issue-setup to install or update the workflow, then run /issue again.','warning');return;}
+    if(status.changed.length){ctx.ui.notify('Resources have been modified or are missing. Review /issue-setup before continuing: '+status.changed.join(', '),'warning');return;}
     if(!pi.getCommands().some(c=>c.source==='extension'&&c.name==='agent')){
-     ctx.ui.notify('Instala pi-agent-suite: pi install npm:pi-agent-suite; después reinicia Pi.','error');return;
+     ctx.ui.notify('Install pi-agent-suite with pi install npm:pi-agent-suite, then restart Pi.','error');return;
     }
     const profile=loadProfile(suite);
     const models=[profile.coordinator,...Object.values(profile.stages)].filter(Boolean);
     for(const settings of models){
      const split=settings.id.indexOf('/');
      if(!ctx.modelRegistry.find(settings.id.slice(0,split),settings.id.slice(split+1))){
-      ctx.ui.notify('Modelo no registrado en Pi: '+settings.id+'. Configura el proveedor/modelo o usa /issue-setup current.','error');return;
+      ctx.ui.notify('Model not registered in Pi: '+settings.id+'. Configure the provider/model or use /issue-setup current.','error');return;
      }
     }
-    if(!models.length&&!ctx.model){ctx.ui.notify('Selecciona un modelo con /model antes de ejecutar /issue.','warning');return;}
+    if(!models.length&&!ctx.model){ctx.ui.notify('Select a model with /model before running /issue.','warning');return;}
     let mergePolicy=parsed.mergePolicy;
     if(mergePolicy===null){
-     if(!ctx.hasUI){ctx.ui.notify('Indica --merge o --no-merge para ejecutar sin selección interactiva.','warning');return;}
-     const manual='Dejar la PR abierta (merge manual)';
-     const auto='Hacer squash merge automáticamente';
-     const choice=await ctx.ui.select('Cuando la PR pase revisión y CI, ¿qué debe hacer el workflow?',[manual,auto]);
+     if(!ctx.hasUI){ctx.ui.notify('Specify --merge or --no-merge when running without interactive selection.','warning');return;}
+     const manual='Leave the PR open for manual merge';
+     const auto='Squash merge automatically';
+     const choice=await ctx.ui.select('What should the workflow do after the PR passes review and CI?',[manual,auto]);
      if(choice!==manual&&choice!==auto)return;
      mergePolicy=choice===auto?'auto':'manual';
     }
     const mergeInstruction=mergePolicy==='auto'
-     ? 'MERGE_POLICY: auto. Se autoriza squash merge únicamente cuando todas las verificaciones, revisión independiente, CI y protecciones se cumplan.'
-     : 'MERGE_POLICY: manual. Deja la PR abierta. No ejecutes merge ni actives auto-merge. Tras CI verde, pasa directamente al informe por la transición manual_merge_selected.';
+     ? 'MERGE_POLICY: auto. Squash merge is authorized only after all validation, independent review, CI and repository protection requirements pass.'
+     : 'MERGE_POLICY: manual. Leave the PR open. Do not merge or enable auto-merge. After CI passes, move directly to the report using the manual_merge_selected transition.';
     await ctx.waitForIdle();
     await pi.sendUserMessage('/agent GitHubDelivery',{expandPromptTemplates:true});
     await pi.sendUserMessage(
-     `Usa el workflow GitHubIssueDelivery para implementar ${ticket} en el repositorio local actual. `+
-     'Activa GitHubIssueDelivery desde su etapa inicial repository_setup antes de investigar, aunque hubiera otra ruta activa. '+
-     'No omitas ninguna etapa. Delega el trabajo en subagentes nuevos; transmite el contexto mediante artefactos. '+
-     'Comprueba primero que la issue corresponde al repositorio local y no hay otro subagente modificándolo. '+
-     'Esta petición autoriza implementar y abrir o actualizar la PR. '+mergeInstruction+' Persiste mergePolicy en handoff.json antes de delegar. '+
-     'Si hay un bloqueo, informa del estado real sin saltar controles.'
+     `Use the GitHubIssueDelivery workflow to implement ${ticket} in the current local repository. `+
+     'Activate GitHubIssueDelivery at its initial repository_setup stage before investigating, even if another route was active. '+
+     'Do not skip required stages. Delegate work to fresh subagent sessions and pass context through artifacts. '+
+     'First verify that the issue matches the local repository and no other subagent is modifying it. '+
+     'This request authorizes implementation and opening or updating the PR. '+mergeInstruction+' Persist mergePolicy in handoff.json before delegating. '+
+     'If blocked, report the actual state without bypassing any safeguards.'
     );
-   }catch(error){ctx.ui.notify('No se pudo iniciar /issue: '+String(error),'error');}
+   }catch(error){ctx.ui.notify('Could not start /issue: '+String(error),'error');}
   }
  });
 }
