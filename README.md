@@ -76,7 +76,13 @@ Alternatively, edit the local preferences file and run `/issue-setup` without ar
 /issue-setup --select
 ```
 
-Walks through the coordinator and every workflow stage with Pi's model picker: choose the model for each role from all registered chat models (or type a `provider/model` ID for a model that is not listed), then choose its thinking level. The resulting profile is saved to `<suite>/github-issue-delivery/models.json` and applied to the workflow. Cancelling at any prompt leaves the previous profile and resources unchanged.
+The first prompt asks how you want to assign models:
+
+- **Choose a model for each stage** — pick a model and a thinking level for the coordinator and every workflow stage individually; this is the right choice when you want a different model for each step.
+- **Current model for every stage** — keep the model Pi currently uses, with no per-stage overrides.
+- **Use one model for every stage** — pick one model, then only the thinking level per stage.
+
+The model lists contain the models your Pi session can actually use (registered with working credentials); every stage prompt also offers “Type a model ID” for any `provider/model` string that is not listed. The resulting profile is saved to `<suite>/github-issue-delivery/models.json` and applied to the workflow. Cancelling at any prompt leaves the previous profile and resources unchanged.
 
 The same selection runs from a terminal without Pi:
 

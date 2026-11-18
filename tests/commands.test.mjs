@@ -18,7 +18,7 @@ function harness(t){
  const commands=new Map(),sent=[],notices=[];
  let reloaded=false;
  const pi={registerCommand(name,value){commands.set(name,value);},getCommands(){return [{name:'agent',source:'extension'}];},async sendUserMessage(...args){sent.push(args);}};
- const ctx={hasUI:true,isIdle:()=>true,waitForIdle:async()=>{},model:{id:'selected'},modelRegistry:{find:()=>({}),getModelsOfType:()=>[]},ui:{notify:(...args)=>notices.push(args),select:async(_title,choices)=>choices[0],input:async()=>''},reload:async()=>{reloaded=true;}};
+ const ctx={hasUI:true,isIdle:()=>true,waitForIdle:async()=>{},model:{id:'selected'},modelRegistry:{find:()=>({}),getAvailable:()=>[]},ui:{notify:(...args)=>notices.push(args),select:async(_title,choices)=>choices[0],input:async()=>''},reload:async()=>{reloaded=true;}};
  issue(pi);setup(pi);
  return {commands,sent,notices,ctx,directory,get reloaded(){return reloaded;}};
 }
@@ -62,7 +62,7 @@ test('/issue-setup --select saves the chosen model and thinking level for every 
  h.ctx.model=null;
  const titles=[];
  h.ctx.ui.select=async(title,choices)=>{titles.push(title);return choices[0];};
- h.ctx.modelRegistry.getModelsOfType=()=>fixtureModels;
+ h.ctx.modelRegistry.getAvailable=()=>fixtureModels;
  await h.commands.get('issue-setup').handler('--select',h.ctx);
  const suite=join(h.directory,'agent-suite');
  const profile=JSON.parse(fs.readFileSync(join(suite,'github-issue-delivery/models.json'),'utf8'));

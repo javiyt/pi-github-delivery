@@ -36,7 +36,7 @@ export default function setupCommand(pi:ExtensionAPI){
     }else if(select){
      if(!ctx.hasUI){ctx.ui.notify('--select requires an interactive Pi session; use --profile from the CLI instead.','error');return;}
      const current=ctx.model?{id:ctx.model.id}:null;
-     const models=(ctx.modelRegistry.getModelsOfType('chat')??[])
+     const models=ctx.modelRegistry.getAvailable()
       .filter(m=>m.type==='chat'||m.type===undefined)
       .map(m=>({id:`${m.provider}/${m.id}`,reasoning:!!m.reasoning,thinkingLevelMap:m.thinkingLevelMap,contextWindow:m.contextWindow}));
      const prompt={
@@ -47,9 +47,11 @@ export default function setupCommand(pi:ExtensionAPI){
      const profile=await selectModelProfile(prompt,current,models);
      if(profile===undefined){ctx.ui.notify('Model selection canceled; no changes.','info');return;}
      const result=install({suite:options.suite,profile});
-     const summary=profile.coordinator?`${profile.coordinator.id} for the coordinator`:
-      current?`current model (${current.id}) for every stage`:'current model for every stage';
-     ctx.ui.notify(`Configured models: ${summary}; ${Object.keys(profile.stages).length} stages overridden. Installed ${result.files.length} resources for GitHub Delivery ${result.version}.`,'info');
+     const ids=new Set([profile.coordinator?.id,...Object.values(profile.stages).map(s=>s.id)]);
+     const summary=Object.keys(profile.stages).length===0
+      ?current?`current model (${current.id}) for every stage`:'current model for every stage':
+      ids.size===1?[...ids][0]+' for every role':`${ids.size} models across ${1+Object.keys(profile.stages).length} roles`;
+     ctx.ui.notify(`Configured models: ${summary}. Installed ${result.files.length} resources for GitHub Delivery ${result.version}.`,'info');
     }else{
      const result=install(options);
      ctx.ui.notify(`${options.dryRun?'Checked':'Installed'} ${result.files.length} resources for GitHub Delivery ${result.version}.`,'info');
