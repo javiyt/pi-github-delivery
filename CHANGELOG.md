@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 2026-11-18
+
+- The `--select` prompt now asks how you want to assign models: choose a model and thinking level for each stage individually, keep the current model for every stage, or use one model for every stage.
+- Model lists are narrowed to the models your Pi session can actually use, so the picker no longer drowns in unrelated catalog entries; per-stage selection remains available from the first prompt.
+- Sync the lock file version with the manifest.
+
 ## [0.1.2] - 2026-11-18
 
 - `/issue-setup --select` chooses the model and thinking level for the coordinator and every workflow stage interactively, from all models registered in Pi.
