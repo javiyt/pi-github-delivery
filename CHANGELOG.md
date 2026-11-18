@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-11-18
+
+- `/issue-setup --select` chooses the model and thinking level for the coordinator and every workflow stage interactively, from all models registered in Pi.
+- `pi-github-delivery-setup --select` runs the same selection from a terminal and lists models from the Pi model registry.
+- Selections are saved to the local model profile and applied on install; cancelling leaves the previous profile and resources unchanged.
+
 ## [0.1.1] - 2026-11-18
 
 - Translate the README, command help, notifications, merge-policy selection, generated workflow requests and progress panel into English.

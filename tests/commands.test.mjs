@@ -5,6 +5,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createJiti} from 'jiti';
 import {install} from '../src/install.mjs';
+import {fixtureModels} from './fixtures/coding-agent.mjs';
+import YAML from 'yaml';
 const jiti=createJiti(import.meta.url,{alias:{'@earendil-works/pi-coding-agent':new URL('./fixtures/coding-agent.mjs',import.meta.url).pathname}});
 const {default:issue,normalizeTicket,parseIssueArgs}=await jiti.import(new URL('../extensions/issue.ts',import.meta.url).pathname);
 const {default:setup}=await jiti.import(new URL('../extensions/setup.ts',import.meta.url).pathname);
@@ -16,7 +18,7 @@ function harness(t){
  const commands=new Map(),sent=[],notices=[];
  let reloaded=false;
  const pi={registerCommand(name,value){commands.set(name,value);},getCommands(){return [{name:'agent',source:'extension'}];},async sendUserMessage(...args){sent.push(args);}};
- const ctx={hasUI:true,isIdle:()=>true,waitForIdle:async()=>{},model:{id:'selected'},modelRegistry:{find:()=>({})},ui:{notify:(...args)=>notices.push(args),select:async(_title,choices)=>choices[0]},reload:async()=>{reloaded=true;}};
+ const ctx={hasUI:true,isIdle:()=>true,waitForIdle:async()=>{},model:{id:'selected'},modelRegistry:{find:()=>({}),getModelsOfType:()=>[]},ui:{notify:(...args)=>notices.push(args),select:async(_title,choices)=>choices[0],input:async()=>''},reload:async()=>{reloaded=true;}};
  issue(pi);setup(pi);
  return {commands,sent,notices,ctx,directory,get reloaded(){return reloaded;}};
 }
@@ -53,6 +55,25 @@ test('/issue-setup installs resources and reloads without executing a model turn
  const h=harness(t);await h.commands.get('issue-setup').handler('omlx',h.ctx);
  assert(h.reloaded);assert.equal(h.sent.length,0);
  assert(fs.existsSync(join(h.directory,'agent-suite/workflow/workflows/GitHubIssueDelivery.yaml')));
+});
+
+test('/issue-setup --select saves the chosen model and thinking level for every role',async t=>{
+ const h=harness(t);install({suite:join(h.directory,'agent-suite')});
+ h.ctx.model=null;
+ const titles=[];
+ h.ctx.ui.select=async(title,choices)=>{titles.push(title);return choices[0];};
+ h.ctx.modelRegistry.getModelsOfType=()=>fixtureModels;
+ await h.commands.get('issue-setup').handler('--select',h.ctx);
+ const suite=join(h.directory,'agent-suite');
+ const profile=JSON.parse(fs.readFileSync(join(suite,'github-issue-delivery/models.json'),'utf8'));
+ assert.equal(profile.coordinator.id,'test/small');assert.equal(profile.coordinator.thinking,'off');
+ assert.equal(Object.keys(profile.stages).length,10);
+ assert(Object.values(profile.stages).every(s=>s.id==='test/small'&&s.thinking==='off'));
+ assert(titles.includes('Thinking level for Coordinator (test/small)'));
+ const workflow=YAML.parse(fs.readFileSync(join(suite,'workflow/workflows/GitHubIssueDelivery.yaml'),'utf8'));
+ assert.equal(workflow.stages.find(s=>s.id==='implement').model.id,'test/small');
+ assert.equal(workflow.stages.find(s=>s.id==='review').model.id,'test/small');
+ assert(h.reloaded);
 });
 
 
